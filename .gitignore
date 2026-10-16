@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# data and outputs never go to git (radar data belongs to the supervisor)
+data/
+data_smoke/
+runs/
+mlruns/
+*.nc
+*.zarr/
+*.DAT
+*.DAT.bz2
+
+.dagster/
+tmp*/
+dist/
+
+# personal notes (CV / interview prep) stay local
+PLAN.md

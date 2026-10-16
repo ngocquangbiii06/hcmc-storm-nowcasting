@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Unit tests
+        run: pytest
+      - name: Smoke test - Himawari segment selection against the live NOAA bucket
+        run: |
+          stormcast segments
+          python -c "from datetime import date; from stormcast.config import load_config; from stormcast.ingest.himawari import list_day; df = list_day(load_config(), date(2025, 8, 1)); print(len(df), 'objects'); assert set(df.segment) == {4, 5} and set(df.band) == {'B08', 'B13', 'B14', 'B15', 'B16'} and len(df) > 1000"

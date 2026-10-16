@@ -1,0 +1,76 @@
+# Default pipeline configuration. Override with: stormcast --config path/to/other.yaml ...
+
+period:
+  start: "2025-08-01"
+  end: "2025-08-31"            # inclusive
+
+grid:
+  # Common 256x256 grid centred on the Nha Be radar (azimuthal equidistant, 1 km pixels)
+  center_lat: 10.6596
+  center_lon: 106.7283
+  size: 256
+  resolution_m: 1000
+
+paths:
+  data_root: data              # bronze/, silver/, gold/, catalog/ live under here
+  reports: reports
+
+himawari:
+  bucket: noaa-himawari9
+  product: AHI-L1b-FLDK
+  bands: [B08, B13, B14, B15, B16]
+  resolution: R20              # 2 km IR bands
+  segments: auto               # auto = computed from grid bbox (HCMC -> [4, 5]); or e.g. [4, 5]
+  keep_raw: true               # false = delete .bz2 after a timestep is processed (~130 GB/month saved)
+  resampler: bilinear          # bilinear | nearest
+  download_workers: 16
+
+radar:
+  station: NhaBe
+  raw_dir: data/bronze/radar   # extract the Google Drive archive here
+  reader: auto                 # auto | sigmet | rainbow | odim | cfradial | nexrad | uf
+  reflectivity_fields: [reflectivity, DBZH, DBZ, TH, corrected_reflectivity, total_power]
+  cappi_height_m: 2000         # confirm with supervisor (2 km or 3 km are common)
+  min_dbz: -10                 # weaker echoes are set to "no echo"
+  no_echo_dbz: -10
+  filename_time_regex: '(\d{14})'
+  filename_time_format: '%Y%m%d%H%M%S'
+  filename_utc_offset_hours: 0 # set 7 if file names use Vietnam local time (ICT)
+
+align:
+  tolerance_minutes: 5
+
+quality:
+  bt_range_k: [170, 340]
+  dbz_range: [-35, 80]
+  max_nan_fraction: 0.2
+  himawari_freq_minutes: 10
+  radar_max_gap_minutes: 20
+
+processing:
+  workers: 4
+
+ml:
+  task: sat_nowcast            # sat_nowcast (Himawari only) | sat_to_radar (needs radar)
+  sat_zarr_path: data/gold/himawari_aug2025.zarr
+  zarr_path: data/gold/hcmc_aug2025.zarr
+  split:
+    train: ["2025-08-01", "2025-08-21"]
+    val:   ["2025-08-22", "2025-08-26"]
+    test:  ["2025-08-27", "2025-08-31"]
+  # --- sat_nowcast: past frames -> future B13 brightness temperature ---
+  input_steps: 4               # t-30, t-20, t-10, t
+  lead_steps: 6                # +10 ... +60 min
+  target_band: B13
+  preload: true                # load the Zarr into RAM as float16 (~3 GB per month)
+  bt_thresholds_k: [235, 220]  # cold-cloud events: convective cloud / deep convection
+  # --- sat_to_radar: satellite at t -> radar CAPPI at t ---
+  history_steps: 0             # extra satellite frames at t-10, t-20 ... minutes
+  max_dbz: 70
+  thresholds_dbz: [20, 35, 45]
+  batch_size: 16
+  epochs: 30
+  lr: 0.001
+  base_channels: 32
+  num_workers: 0
+  output_dir: runs

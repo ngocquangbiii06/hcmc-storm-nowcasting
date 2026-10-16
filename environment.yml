@@ -1,0 +1,24 @@
+# Recommended on Windows: conda/mamba resolves Py-ART, SatPy and the netCDF/HDF5 stack cleanly.
+#   mamba env create -f environment.yml && conda activate stormcast && pip install -e ".[dev,orchestration]"
+name: stormcast
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - pyarrow
+  - pyyaml
+  - xarray
+  - zarr
+  - netcdf4
+  - scipy
+  - dask
+  - boto3
+  - satpy
+  - pyresample
+  - arm_pyart
+  - duckdb
+  - matplotlib
+  - cartopy
+  - pip
