@@ -22,3 +22,4 @@ dist/
 
 # personal notes (CV / interview prep) stay local
 PLAN.md
+.venv313/

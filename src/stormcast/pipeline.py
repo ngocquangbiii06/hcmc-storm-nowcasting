@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from concurrent.futures import ProcessPoolExecutor
 from datetime import date, timedelta
@@ -74,6 +75,9 @@ def himawari_process(cfg: Config, day: date) -> pd.DataFrame:
     df = pd.DataFrame(_run_pool(process_timestep, jobs, cfg.processing.workers))
     log.info("himawari %s: %d timesteps in %.1fs", day, len(df), time.perf_counter() - t0)
     catalog.write_partition(df, cfg.paths.catalog, T_HIMAWARI_FRAMES, day)
+    if not cfg.himawari.keep_raw:
+        # also drops files of failed/incomplete timesteps, so a bad day can never fill the disk
+        shutil.rmtree(cfg.paths.bronze / "himawari" / f"{day:%Y/%m/%d}", ignore_errors=True)
     return df
 
 
