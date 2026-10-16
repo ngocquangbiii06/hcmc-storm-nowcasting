@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +40,8 @@ def regrid_timestep(cfg: Config, files: list[str]) -> tuple[np.ndarray, pd.Times
         local = scn.resample(
             target_area(cfg.grid),
             resampler=cfg.himawari.resampler,
-            cache_dir=str(cfg.paths.cache / "resample"),
+            # one cache per worker process: pyresample's cache is not safe for concurrent writers
+            cache_dir=str(cfg.paths.cache / "resample" / f"pid{os.getpid()}"),
         )
         bt = np.stack([local[b].values.astype("float32") for b in bands])
     return bt, observation_time(local[bands[0]].attrs)
