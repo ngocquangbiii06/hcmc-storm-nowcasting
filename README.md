@@ -6,7 +6,7 @@ Full-disk Himawari-9 files are pulled from the NOAA open-data bucket on AWS, cut
 
 The pipeline also contains a radar branch (raw radar volumes → CAPPI with Py-ART, paired with the satellite frames), which is tested on synthetic volumes and ready for when radar data is available.
 
-> Status: pipeline verified on real Himawari data (2025-08-01 08:00 UTC, see `reports/`); full-month run and model results in progress.
+> Status: August 2025 fully processed (4,393 frames, 100% QC pass) and a U-Net trained and evaluated against two baselines; see [Results](#results).
 
 ---
 
@@ -51,20 +51,31 @@ Orchestrated as daily-partitioned **Dagster** assets; the same steps run from a 
 
 ## Results
 
+### Data pipeline (August 2025, one Kaggle CPU run)
+
 | Metric | Value |
 |---|---|
-| Himawari files / volume ingested | _tbd_ |
-| Frames passing QC | _tbd_ |
-| Processing time per timestep (SatPy, 10 files) | 16 s (local CPU) |
-| Gold dataset size | _tbd_ |
+| Raw Himawari files ingested | 43,930 files, **113.5 GB** (segments 4-5 only; ~550 GB for the full disk) |
+| Frames passing QC | **4,393 / 4,393 (100%)** over 31 days |
+| Timesteps missing upstream on S3 | 71 of 4,464 (recorded, never fatal) |
+| Observation time minus file timestamp | **3.9 min** (median), used for alignment |
+| Output kept | 3.1 GB silver NetCDF + 3.3 GB gold Zarr (~6% of raw) |
+| Throughput | ~45 s download + ~10 min processing per day on 4 CPUs; 5.5 h for the month |
 
-**Nowcasting skill on held-out days (27–31 Aug):** CSI for cold cloud (B13 ≤ 235 K)
+### Nowcasting skill (held-out days 27–31 Aug, 591 forecast windows)
 
-| Method | +10 min | +30 min | +60 min |
-|---|---|---|---|
-| Persistence | | | |
-| Optical flow (Farneback) | | | |
-| U-Net (4 input frames, residual) | | | |
+CSI for cold cloud tops, higher is better (B13 ≤ 235 K: convective cloud, ≤ 220 K: deep convection):
+
+| Method | +10 min | +30 min | +60 min | +60 min, ≤ 220 K | MAE +60 min (K) |
+|---|---|---|---|---|---|
+| Persistence | 0.839 | 0.678 | 0.539 | 0.420 | 12.4 |
+| Optical flow (Farneback) | 0.873 | 0.713 | 0.557 | 0.442 | 12.0 |
+| **U-Net** (4 input frames × 5 bands, residual) | **0.913** | **0.806** | **0.678** | **0.601** | **8.4** |
+
+The U-Net beats optical flow at every lead time, and the margin grows with lead time (+0.12 CSI at +60 min,
++0.16 for deep convection): extrapolation can move clouds but not grow or decay them, which is what the
+network learns. Trained 30 epochs on a Kaggle T4 (~82 s/epoch); one month of wet-season data, so treat the
+numbers as a proof of concept.
 
 ## Quickstart
 
