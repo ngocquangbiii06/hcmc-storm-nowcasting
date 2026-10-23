@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +38,11 @@ def regrid_timestep(cfg: Config, files: list[str]) -> tuple[np.ndarray, pd.Times
     bands = list(cfg.himawari.bands)
     tmp_dir = satpy_tmp_dir(cfg)
     tmp_dir.mkdir(parents=True, exist_ok=True)
+    # off-disk (space) pixels emit "invalid value encountered in log" thousands of times per day,
+    # which floods hosted log viewers; they become NaN and are counted by QC anyway
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    warnings.filterwarnings("ignore", message=".*PROJ string.*")
+    warnings.filterwarnings("ignore", message=".*Consolidated metadata.*")
     # parallelism comes from the process pool; bz2 segments are decompressed into our own tmp dir
     with dask.config.set(scheduler="synchronous"), satpy.config.set(tmp_dir=str(tmp_dir)):
         scn = Scene(reader="ahi_hsd", filenames=files)
