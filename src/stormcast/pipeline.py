@@ -60,7 +60,7 @@ def radar_index(cfg: Config, archive: Path | None = None) -> pd.DataFrame:
 # --- silver -------------------------------------------------------------------------------------
 
 def himawari_process(cfg: Config, day: date) -> pd.DataFrame:
-    from stormcast.process.himawari_grid import process_timestep
+    from stormcast.process.himawari_grid import process_timestep, satpy_tmp_dir
 
     raw = catalog.read_table(cfg.paths.catalog, T_HIMAWARI_RAW, [day])
     if raw.empty:
@@ -78,6 +78,8 @@ def himawari_process(cfg: Config, day: date) -> pd.DataFrame:
     if not cfg.himawari.keep_raw:
         # also drops files of failed/incomplete timesteps, so a bad day can never fill the disk
         shutil.rmtree(cfg.paths.bronze / "himawari" / f"{day:%Y/%m/%d}", ignore_errors=True)
+    # decompressed segments leak if a worker exits before SatPy's file handlers are garbage-collected
+    shutil.rmtree(satpy_tmp_dir(cfg), ignore_errors=True)
     return df
 
 

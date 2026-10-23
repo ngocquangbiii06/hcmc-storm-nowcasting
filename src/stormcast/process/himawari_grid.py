@@ -31,10 +31,14 @@ def observation_time(attrs: dict) -> pd.Timestamp:
 
 def regrid_timestep(cfg: Config, files: list[str]) -> tuple[np.ndarray, pd.Timestamp]:
     import dask
+    import satpy
     from satpy import Scene
 
     bands = list(cfg.himawari.bands)
-    with dask.config.set(scheduler="synchronous"):  # parallelism comes from the process pool
+    tmp_dir = satpy_tmp_dir(cfg)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    # parallelism comes from the process pool; bz2 segments are decompressed into our own tmp dir
+    with dask.config.set(scheduler="synchronous"), satpy.config.set(tmp_dir=str(tmp_dir)):
         scn = Scene(reader="ahi_hsd", filenames=files)
         scn.load(bands, calibration="brightness_temperature")
         local = scn.resample(
@@ -45,6 +49,11 @@ def regrid_timestep(cfg: Config, files: list[str]) -> tuple[np.ndarray, pd.Times
         )
         bt = np.stack([local[b].values.astype("float32") for b in bands])
     return bt, observation_time(local[bands[0]].attrs)
+
+
+def satpy_tmp_dir(cfg: Config) -> Path:
+    """Where SatPy writes decompressed HSD segments (~6 MB each); wiped after every day."""
+    return cfg.paths.cache / "satpy_tmp"
 
 
 def silver_path(cfg: Config, nominal_time: pd.Timestamp) -> Path:
